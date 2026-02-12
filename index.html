@@ -87,6 +87,30 @@
             transition: all 0.3s;
         }
         .login-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 50px rgba(30, 255, 0, 0.5); }
+        .team-select-btn {
+            width: 100%;
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: #fff;
+            font-family: 'Vazirmatn', sans-serif;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: right;
+        }
+        .team-select-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(30, 255, 0, 0.3);
+        }
+        .team-select-btn.selected {
+            background: linear-gradient(135deg, #1eff00 0%, #00ff88 100%);
+            border-color: #1eff00;
+            color: #0a0e27;
+            font-weight: 700;
+            box-shadow: 0 5px 20px rgba(30, 255, 0, 0.3);
+        }
         .header {
             background: rgba(20, 25, 45, 0.95);
             padding: 25px 40px;
@@ -612,7 +636,7 @@
                         
                         <div id="loginFields"></div>
                         
-                        <button class="login-btn" onclick="login()">ورود</button>
+                        <button class="login-btn" <button type="button" onclick="login()">ورود</button>
                     </div>
                 </div>
             `;
@@ -640,6 +664,29 @@
                         ورود مستقیم به حالت تماشاگر
                     </p>
                 `;
+            } else if (app.role === 'team') {
+                const teams = Object.keys(app.userTeams);
+                container.innerHTML = `
+                    <div class="input-group">
+                        <label>انتخاب تیم</label>
+                        <div id="teamsList" style="display:flex; flex-direction:column; gap:10px;">
+                            ${teams.length === 0 ? '<p style="color:#b0b0b0; text-align:center;">هیچ تیمی ثبت نشده است</p>' : 
+                                teams.map(teamKey => {
+                                    const team = app.userTeams[teamKey];
+                                    return `
+                                        <button type="button" class="team-select-btn" data-team="${team.name}" onclick="selectTeam('${team.name}')">
+                                            ${team.name}
+                                        </button>
+                                    `;
+                                }).join('')
+                            }
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>رمز عبور</label>
+                        <input type="password" id="password" placeholder="رمز عبور خود را وارد کنید">
+                    </div>
+                `;
             } else {
                 container.innerHTML = `
                     <div class="input-group">
@@ -654,6 +701,14 @@
             }
         }
 
+        function selectTeam(teamName) {
+            document.querySelectorAll('.team-select-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            event.target.classList.add('selected');
+            app.selectedTeam = teamName;
+        }
+
         function login() {
             if (app.role === 'viewer') {
                 app.user = 'viewer';
@@ -662,15 +717,19 @@
                 return;
             }
 
-            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
             
-            if (!username || !password) {
-                alert('لطفا نام کاربری و رمز عبور را وارد کنید');
+            if (!password) {
+                alert('لطفا رمز عبور را وارد کنید');
                 return;
             }
             
             if (app.role === 'admin') {
+                const username = document.getElementById('username').value.trim();
+                if (!username) {
+                    alert('لطفا نام کاربری را وارد کنید');
+                    return;
+                }
                 if (username === 'admin' && password === 'admin123') {
                     app.user = username;
                     renderApp();
@@ -678,16 +737,20 @@
                     alert('نام کاربری یا رمز عبور اشتباه است');
                 }
             } else if (app.role === 'team') {
-                const team = Object.keys(app.userTeams).find(t => 
-                    app.userTeams[t].username === username && app.userTeams[t].password === password
-                );
+                if (!app.selectedTeam) {
+                    alert('لطفا یک تیم را انتخاب کنید');
+                    return;
+                }
                 
-                if (team) {
-                    app.user = username;
-                    app.team = app.userTeams[team].name;
+                const teamKey = Object.keys(app.userTeams).find(t => app.userTeams[t].name === app.selectedTeam);
+                const team = app.userTeams[teamKey];
+                
+                if (team && team.password === password) {
+                    app.user = team.username;
+                    app.team = team.name;
                     renderApp();
                 } else {
-                    alert('نام کاربری یا رمز عبور اشتباه است');
+                    alert('رمز عبور اشتباه است');
                 }
             }
         }
