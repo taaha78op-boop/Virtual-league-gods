@@ -592,20 +592,86 @@
             }
         };
 
-        function loadData() {
-            const saved = localStorage.getItem('footballLeagueData');
-            if (saved) {
-                const data = JSON.parse(saved);
-                Object.assign(app, data);
+        // Storage Configuration - یکی از دو روش زیر را انتخاب کنید
+        const STORAGE_TYPE ='jsonbin'
+        
+        // JSONBin Configuration (ساده‌تر - پیشنهادی)
+        const JSONBIN_ID = '698da9c5d0ea881f40b4930a';
+        const JSONBIN_KEY = '$2a$10$mFtitb.iHP4TG9XMcEMVcOleX1B/lik6tUr7oM7QU6S9xDHlrHJ7i';
+        
+        async function loadData() {
+            try {
+                // ابتدا از localStorage بخوانیم
+                const saved = localStorage.getItem('footballLeagueData');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    Object.assign(app, data);
+                }
+                
+                // سپس از سرور بخوانیم
+                if (STORAGE_TYPE === 'github' && GIST_ID && GIST_ID !== 'YOUR_GIST_ID_HERE') {
+                    const response = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+                    if (response.ok) {
+                        const gist = await response.json();
+                        const content = gist.files['data.json'].content;
+                        const data = JSON.parse(content);
+                        Object.assign(app, data);
+                        localStorage.setItem('footballLeagueData', JSON.stringify(app));
+                    }
+                } else if (STORAGE_TYPE === 'jsonbin' && JSONBIN_ID && JSONBIN_ID !== 'YOUR_JSONBIN_ID_HERE') {
+                    const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`, {
+                        headers: {
+                            'X-Master-Key': JSONBIN_KEY
+                        }
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        Object.assign(app, result.record);
+                        localStorage.setItem('footballLeagueData', JSON.stringify(app));
+                    }
+                }
+            } catch (error) {
+                console.error('خطا در بارگذاری داده:', error);
             }
         }
 
-        function saveData() {
+        async function saveData() {
+            // ذخیره در localStorage
             localStorage.setItem('footballLeagueData', JSON.stringify(app));
+            
+            // ذخیره در سرور
+            try {
+                if (STORAGE_TYPE === 'github' && GIST_ID && GIST_ID !== 'YOUR_GIST_ID_HERE' && GITHUB_TOKEN && GITHUB_TOKEN !== 'YOUR_GITHUB_TOKEN_HERE') {
+                    await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `token ${GITHUB_TOKEN}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            files: {
+                                'data.json': {
+                                    content: JSON.stringify(app, null, 2)
+                                }
+                            }
+                        })
+                    });
+                } else if (STORAGE_TYPE === 'jsonbin' && JSONBIN_ID && JSONBIN_ID !== 'YOUR_JSONBIN_ID_HERE' && JSONBIN_KEY && JSONBIN_KEY !== 'YOUR_JSONBIN_KEY_HERE') {
+                    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Master-Key': JSONBIN_KEY
+                        },
+                        body: JSON.stringify(app)
+                    });
+                }
+            } catch (error) {
+                console.error('خطا در ذخیره داده:', error);
+            }
         }
 
-        loadData();
-        renderApp();
+        loadData().then(() => renderApp());
 
         function renderApp() {
             const root = document.getElementById('app');
